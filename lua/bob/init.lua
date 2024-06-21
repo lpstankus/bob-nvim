@@ -1,14 +1,4 @@
 local uv = vim.loop
-local bob_group = vim.api.nvim_create_augroup("Bob", {})
-
----@param tbl   table
----@param first integer?
----@param last  integer?
-local function slice(tbl, first, last)
-  local sliced = {}
-  for i = first or 1, last or #tbl, 1 do sliced[#sliced+1] = tbl[i] end
-  return sliced
-end
 
 ---@class Bob
 local M = {}
@@ -20,10 +10,9 @@ local initialized = false
 local storage = require("bob.storage")
 
 local linters = {}  ---@type table<string, bob.Command>
-local builders = {} ---@type table<string, bob.Command>
+local builders = {} ---@type table<string, bob.Builder>
 
 local running_lintprocs = {} ---@type bob.LintProc[]
-local builder_buf = nil
 
 ---@param commands table<"builders"|"linters", table<string, bob.Command>>
 function M.setup(commands)
@@ -38,7 +27,7 @@ function M.setup(commands)
   builders = {}
   for name, builder in pairs(commands.builders) do
     if not builder.name then builder.name = name end
-    builders[name] = require("bob.command").create_command(builder, "builder")
+    builders[name] = require("bob.builder").create_builder(builder)
   end
 
   storage:load()
@@ -54,8 +43,9 @@ function M.add_linter(cmd_name)
 end
 
 ---@param cmd_names string[]
-function M.set_linter(cmd_names)
+function M.set_linters(cmd_names)
   assert(initialized, "Bob: must initialize bob with `require('bob').setup()` before trying to lint")
+  if type(cmd_names) == "string" then cmd_names = { cmd_names } end
   storage:replace_linters(vim.fn.getcwd(), cmd_names)
   storage:save()
 end
@@ -77,7 +67,7 @@ local function spawn_detached(command)
   local cmds = vim.split(command.cmd, " ", {trimempty = true})
 
   local lintproc_opts = {
-    args = slice(cmds, 2, nil),
+    args = require("bob.utils").slice(cmds, 2, nil),
     cwd = command.cwd,
     detached = true,
     stdio = { stdin, stdout, stderr },
@@ -141,49 +131,25 @@ function M.lint()
   end
 end
 
-function M.build()
+---@param open_win boolean?
+function M.build(open_win)
   assert(initialized, "Bob: must initialize bob with `require('bob').setup()` before trying to build")
 
   local name = storage:retrieve_builder(vim.fn.getcwd())
   local builder = builders[name]
   assert(builder, "Bob: builder with name `" .. name .. "` not available")
 
-  if builder_buf then vim.cmd("bdelete! " .. builder_buf) end
+  builder:build(open_win or false)
+end
 
-  builder_buf = vim.api.nvim_create_buf(true, true)
-  if builder_buf == 0 then
-    vim.notify("Bob: failed to spawn new buffer")
-    return
-  end
+function M.toggle_window()
+  assert(initialized, "Bob: must initialize bob with `require('bob').setup()` before trying to build")
 
-  if builder.builderViz == "split" then
-    vim.cmd("split")
-    local win = vim.api.nvim_get_current_win()
-    vim.api.nvim_win_set_buf(win, builder_buf)
-    vim.cmd("wincmd J")
-    vim.api.nvim_win_set_height(win, 20)
-    vim.cmd("terminal " .. builder.cmd)
-    vim.cmd('startinsert')
-  elseif builder.builderViz == "background" then
-    local win = vim.api.nvim_get_current_win()
-    local cur_buf = vim.api.nvim_get_current_buf()
-    vim.api.nvim_win_set_buf(win, builder_buf)
-    vim.cmd("terminal " .. builder.cmd)
-    vim.api.nvim_win_set_buf(win, cur_buf)
-  else
-    vim.notify("Bob: invalid builderViz setting: " .. builder.builderViz)
-  end
+  local name = storage:retrieve_builder(vim.fn.getcwd())
+  local builder = builders[name]
+  assert(builder, "Bob: builder with name `" .. name .. "` not available")
 
-  vim.api.nvim_create_autocmd(
-    { "TermClose" },
-    {
-      group = bob_group, buffer = builder_buf,
-      callback = function(_)
-        -- TODO: read output of terminal, publish diagnostics if there are any...
-      end
-    }
-  )
-
+  builder:toggle_window()
 end
 
 return M
