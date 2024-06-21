@@ -1,5 +1,3 @@
-local uv = vim.loop
-
 ---@class Bob
 local M = {}
 
@@ -9,19 +7,16 @@ local initialized = false
 ---@type bob.Storage
 local storage = require("bob.storage")
 
-local linters = {}  ---@type table<string, bob.Command>
+local linters = {}  ---@type table<string, bob.Linter>
 local builders = {} ---@type table<string, bob.Builder>
 
-local running_lintprocs = {} ---@type bob.LintProc[]
-
----@param commands table<"builders"|"linters", table<string, bob.Command>>
 function M.setup(commands)
   assert(vim.diagnostic, "Bob: neovim 0.6.0+ is required")
 
   linters = {}
   for name, linter in pairs(commands.linters) do
     if not linter.name then linter.name = name end
-    linters[name] = require("bob.command").create_command(linter, "linter")
+    linters[name] = require("bob.linter").create_command(linter)
   end
 
   builders = {}
@@ -57,77 +52,15 @@ function M.set_builder(cmd_name)
   storage:save()
 end
 
----@param command bob.Command
----@return bob.LintProc?
-local function spawn_detached(command)
-  local stdin  = assert(uv.new_pipe(false), "Bob: failed to create create new pipe")
-  local stdout = assert(uv.new_pipe(false), "Bob: failed to create create new pipe")
-  local stderr = assert(uv.new_pipe(false), "Bob: failed to create create new pipe")
-
-  local cmds = vim.split(command.cmd, " ", {trimempty = true})
-
-  local lintproc_opts = {
-    args = require("bob.utils").slice(cmds, 2, nil),
-    cwd = command.cwd,
-    detached = true,
-    stdio = { stdin, stdout, stderr },
-  }
-
-  local handle
-  local pid_or_err
-
-  handle, pid_or_err = uv.spawn(
-    cmds[1],
-    lintproc_opts,
-    function()
-      if handle and not handle:is_closing() then
-        local lintproc = running_lintprocs[command.name] or {}
-        if handle == lintproc.handle then running_lintprocs[command.name] = nil end
-        handle:close()
-      end
-    end
-  )
-
-  if not handle then
-    stdout:close()
-    stderr:close()
-    stdin:close()
-    vim.notify("Bob: error running " .. cmds[1] .. ": " .. pid_or_err, vim.log.levels.ERROR)
-    return nil
-  end
-
-  local lintproc = setmetatable({
-      command = command,
-      cancelled = false,
-      handle = handle,
-      stdout = stdout,
-      stderr = stderr,
-    }, require("bob.lintproc")
-  )
-  lintproc:read_output()
-
-  return lintproc
-end
-
 function M.lint()
   assert(initialized, "Bob: must initialize bob with `require('bob').setup()` before trying to lint")
 
   local linter_names = storage:retrieve_linters(vim.fn.getcwd())
-
   for _, name in pairs(linter_names) do
     local linter = linters[name]
     assert(linter, "Bob: linter with name `" .. name .. "` not available")
 
-    local lintproc = running_lintprocs[linter.name]
-    if lintproc then lintproc:cancel() end
-
-    running_lintprocs[linter.name] = nil
-    local ok, maybe_lintproc = pcall(spawn_detached, linter)
-    if ok then
-      running_lintprocs[linter.name] = maybe_lintproc
-    else
-      vim.notify("Bob: failed to spawn " .. linter.name, vim.log.levels.WARN)
-    end
+    linter:lint()
   end
 end
 

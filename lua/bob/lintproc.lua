@@ -1,5 +1,5 @@
 ---@class bob.LintProc
----@field command bob.Command
+---@field linter bob.Linter
 ---@field handle  uv.uv_process_t
 ---@field stdout  uv.uv_pipe_t
 ---@field stderr  uv.uv_pipe_t
@@ -29,7 +29,7 @@ end
 
 function LintProc:read_output()
   local publish_fn = function(diagnostics)
-    vim.diagnostic.reset(self.command.namespace)
+    vim.diagnostic.reset(self.linter.namespace)
 
     if not self.cancelled then
       local to_publish = {}
@@ -48,7 +48,7 @@ function LintProc:read_output()
       end
 
       for bufnr, buf_diagnostics in pairs(to_publish) do
-        vim.diagnostic.set(self.command.namespace, bufnr, buf_diagnostics)
+        vim.diagnostic.set(self.linter.namespace, bufnr, buf_diagnostics)
       end
     end
 
@@ -58,15 +58,7 @@ function LintProc:read_output()
     self.stderr:close()
   end
 
-  local parser = self.command:create_parser()
-  local stream = self.command.stream
-  if stream == "stdout" then
-    self.stdout:read_start(read_stream(self.command.cwd, parser, publish_fn))
-  elseif stream == "stderr" then
-    self.stderr:read_start(read_stream(self.command.cwd, parser, publish_fn))
-  else
-    error('Bob: invalid `stream` setting: ' .. stream .. 'for command ' .. self.command.name)
-  end
+  self[self.linter.stream]:read_start(read_stream(self.linter.cwd, self.linter.parser, publish_fn))
 end
 
 return M
