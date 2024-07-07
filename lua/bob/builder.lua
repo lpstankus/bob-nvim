@@ -38,11 +38,11 @@ function Builder:build(open_win)
     return
   end
 
+  vim.cmd("split")
   local win = vim.api.nvim_get_current_win()
-  local cur_buf = vim.api.nvim_get_current_buf()
   vim.api.nvim_win_set_buf(win, builder_buf)
   vim.cmd("terminal " .. self.cmd)
-  vim.api.nvim_win_set_buf(win, cur_buf)
+  vim.cmd("q")
 
   vim.notify("Bob: spawned builder `" .. self.name .. "`")
   if open_win then self:toggle_window() end
