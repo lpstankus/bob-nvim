@@ -30,7 +30,7 @@ end
 
 ---@param open_win boolean
 function Builder:build(open_win)
-  if builder_buf then vim.cmd("bdelete! " .. builder_buf) end
+  if builder_buf then self:kill() end
 
   builder_buf = vim.api.nvim_create_buf(true, true)
   if builder_buf == 0 then
@@ -85,6 +85,17 @@ function Builder:build(open_win)
       end
     }
   )
+end
+
+function Builder:kill()
+  if builder_win then
+    vim.api.nvim_win_close(builder_win, false)
+    builder_win = nil
+  end
+  if builder_buf then
+    vim.cmd("bdelete! " .. builder_buf)
+    builder_buf = nil
+  end
 end
 
 function Builder:toggle_window()

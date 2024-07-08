@@ -75,6 +75,16 @@ function M.build(open_win)
   builder:build(open_win or false)
 end
 
+function M.kill_builder()
+  assert(initialized, "Bob: must initialize bob with `require('bob').setup()` before trying to build")
+
+  local name = storage:retrieve_builder(vim.fn.getcwd())
+  local builder = builders[name]
+  assert(builder, "Bob: builder with name `" .. name .. "` not available")
+
+  builder:kill()
+end
+
 function M.toggle_window()
   assert(initialized, "Bob: must initialize bob with `require('bob').setup()` before trying to build")
 
