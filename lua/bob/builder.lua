@@ -10,6 +10,7 @@ local bob_group = vim.api.nvim_create_augroup("Bob", {})
 
 local builder_buf = nil
 local builder_win = nil
+local builder_blockinput = false
 
 ---@return bob.Builder
 function M.create_builder(opts)
@@ -44,8 +45,21 @@ function Builder:build(open_win)
   vim.cmd("terminal " .. self.cmd)
   vim.cmd("q")
 
+  builder_blockinput = true
+
   vim.notify("Bob: spawned builder `" .. self.name .. "`")
   if open_win then self:toggle_window() end
+
+  vim.api.nvim_create_autocmd(
+    { "TermEnter" },
+    {
+      group = bob_group,
+      buffer = builder_buf,
+      callback = function(_)
+        if builder_blockinput then vim.cmd("stopinsert") end
+      end
+    }
+  )
 
   vim.api.nvim_create_autocmd(
     { "TermClose" },
@@ -53,10 +67,21 @@ function Builder:build(open_win)
       group = bob_group,
       buffer = builder_buf,
       callback = function(_)
+        builder_blockinput = false
+        vim.notify("Bob: finished execution of `" .. self.name .. "`")
+      end
+    }
+  )
+
+  vim.api.nvim_create_autocmd(
+    { "TermLeave" },
+    {
+      group = bob_group,
+      buffer = builder_buf,
+      callback = function(_)
         -- TODO: read output of terminal, publish diagnostics if there are any...
         builder_buf = nil
         builder_win = nil
-        vim.notify("Bob: finished execution of `" .. self.name .. "`")
       end
     }
   )
