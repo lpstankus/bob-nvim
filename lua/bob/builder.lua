@@ -115,20 +115,21 @@ function Builder:toggle_window()
     return
   end
 
-  local tot_width  = vim.o.columns
-  local tot_height = vim.o.lines
+  local tot_width  = vim.o.columns - 2
+  local tot_height = vim.o.lines - 4
 
   local fraction = 0.8
   local win_width  = math.floor(tot_width * fraction)
   local win_height = math.floor(tot_height * fraction)
 
   local off_width = math.floor((tot_width - win_width) / 2)
-  local off_height = math.floor((tot_height - win_height) / 2)
+  local off_height = math.floor((tot_height - win_height) / 2) + 1
 
   builder_win = vim.api.nvim_open_win(
     builder_buf,
     true,
     {
+      title = { { "┤ bob: " .. self.name .. " ├", "Normal" } },
       relative = 'win', border = "single", style = "minimal",
       width = win_width, height = win_height, col = off_width, row = off_height,
     }
