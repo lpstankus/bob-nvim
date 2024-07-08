@@ -64,15 +64,19 @@ function M.lint()
   end
 end
 
----@param open_win boolean?
-function M.build(open_win)
+function M.build(opts)
   assert(initialized, "Bob: must initialize bob with `require('bob').setup()` before trying to build")
 
   local name = storage:retrieve_builder(vim.fn.getcwd())
   local builder = builders[name]
   assert(builder, "Bob: builder with name `" .. name .. "` not available")
 
-  builder:build(open_win or false)
+  local launch_params = {
+    open_win = opts.open_win or true,
+    force_new = opts.force_new or false,
+  }
+
+  builder:build(launch_params)
 end
 
 function M.kill_builder()

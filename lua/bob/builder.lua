@@ -28,9 +28,14 @@ function M.create_builder(opts)
   return builder
 end
 
----@param open_win boolean
-function Builder:build(open_win)
-  if builder_buf then self:kill() end
+function Builder:build(opts)
+  if builder_buf then
+    if not opts.force_new then
+      self:toggle_window()
+      return
+    end
+    self:kill()
+  end
 
   builder_buf = vim.api.nvim_create_buf(true, true)
   if builder_buf == 0 then
@@ -48,7 +53,7 @@ function Builder:build(open_win)
   builder_blockinput = true
 
   vim.notify("Bob: spawned builder `" .. self.name .. "`")
-  if open_win then self:toggle_window() end
+  if opts.open_win then self:toggle_window() end
 
   vim.api.nvim_create_autocmd(
     { "TermEnter" },
