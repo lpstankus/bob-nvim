@@ -6,11 +6,10 @@
 local Builder = {}
 local M = { __index = Builder }
 
-local bob_group = vim.api.nvim_create_augroup("Bob", {})
-
+local alive = false
 local builder_buf = nil
 local builder_win = nil
-local builder_blockinput = false
+local bob_group = nil
 
 ---@return bob.Builder
 function M.create_builder(opts)
@@ -50,41 +49,34 @@ function Builder:build(opts)
   vim.cmd("terminal " .. self.cmd)
   vim.cmd("q")
 
-  builder_blockinput = true
+  alive = true
 
   vim.notify("Bob: spawned builder `" .. self.name .. "`")
   if opts.open_win then self:toggle_window() end
+
+  -- create/clear augroup
+  bob_group = vim.api.nvim_create_augroup("Bob", { clear = true })
 
   vim.api.nvim_create_autocmd(
     { "TermEnter" },
     {
       group = bob_group,
       buffer = builder_buf,
-      callback = function(_)
-        if builder_blockinput then vim.cmd("stopinsert") end
-      end
+      callback = function(_) vim.cmd("stopinsert") end
     }
   )
 
   vim.api.nvim_create_autocmd(
-    { "TermClose" },
-    {
-      group = bob_group,
-      buffer = builder_buf,
-      callback = function(_)
-        builder_blockinput = false
-        vim.notify("Bob: finished execution of `" .. self.name .. "`")
-      end
-    }
-  )
-
-  vim.api.nvim_create_autocmd(
-    { "TermLeave" },
+    { "BufDelete", "QuitPre" },
     {
       group = bob_group,
       buffer = builder_buf,
       callback = function(_)
         -- TODO: read output of terminal, publish diagnostics if there are any...
+
+        self:kill()
+        vim.notify("Bob: finished execution of `" .. self.name .. "`")
+
         builder_buf = nil
         builder_win = nil
       end
@@ -93,13 +85,16 @@ function Builder:build(opts)
 end
 
 function Builder:kill()
-  if builder_win then
-    vim.api.nvim_win_close(builder_win, false)
-    builder_win = nil
-  end
-  if builder_buf then
-    vim.cmd("bdelete! " .. builder_buf)
-    builder_buf = nil
+  if alive then
+    alive = false
+    if builder_win then
+      vim.api.nvim_win_close(builder_win, false)
+      builder_win = nil
+    end
+    if builder_buf then
+      vim.cmd("bdelete! " .. builder_buf)
+      builder_buf = nil
+    end
   end
 end
 
