@@ -6,10 +6,11 @@
 local Builder = {}
 local M = { __index = Builder }
 
-local alive = false
+local bob_group
+
 local builder_buf = nil
 local builder_win = nil
-local bob_group = nil
+local builder_alive = false
 
 ---@return bob.Builder
 function M.create_builder(opts)
@@ -28,12 +29,11 @@ function M.create_builder(opts)
 end
 
 function Builder:build(opts)
-  if builder_buf then
-    if not opts.force_new then
-      self:toggle_window()
-      return
-    end
-    self:kill()
+  if opts.force_new then self:kill() end
+
+  if builder_alive then
+    self:toggle_window()
+    return
   end
 
   builder_buf = vim.api.nvim_create_buf(true, true)
@@ -43,19 +43,16 @@ function Builder:build(opts)
     return
   end
 
-  vim.cmd("split")
-  local win = vim.api.nvim_get_current_win()
-  vim.api.nvim_win_set_buf(win, builder_buf)
+  self:toggle_window()
+  vim.api.nvim_feedkeys("G", "n", false)
   vim.cmd("terminal " .. self.cmd)
-  vim.cmd("q")
 
-  alive = true
-
+  builder_alive = true
+  if not opts.open_win then self:toggle_window() end
   vim.notify("Bob: spawned builder `" .. self.name .. "`")
-  if opts.open_win then self:toggle_window() end
 
   -- create/clear augroup
-  bob_group = vim.api.nvim_create_augroup("Bob", { clear = true })
+  bob_group = vim.api.nvim_create_augroup("__InternalBobGroup", { clear = true })
 
   vim.api.nvim_create_autocmd(
     { "TermEnter" },
@@ -104,8 +101,8 @@ function Builder:build(opts)
 end
 
 function Builder:kill()
-  if alive then
-    alive = false
+  if builder_alive then
+    builder_alive = false
     if builder_win then
       vim.api.nvim_win_close(builder_win, false)
       builder_win = nil
@@ -123,7 +120,7 @@ function Builder:toggle_window()
     return
   end
 
-  if builder_win then
+  if builder_win and vim.api.nvim_win_is_valid(builder_win) then
     vim.api.nvim_win_close(builder_win, false)
     builder_win = nil
     return
