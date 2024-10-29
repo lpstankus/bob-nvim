@@ -67,6 +67,25 @@ function Builder:build(opts)
   )
 
   vim.api.nvim_create_autocmd(
+    { "TextChanged" },
+    {
+      group = bob_group,
+      buffer = builder_buf,
+      callback = function()
+        if not builder_alive or not builder_win or not builder_buf then return end
+
+        local cursor_row = vim.api.nvim_win_get_cursor(builder_win)[1]
+        local line_count = vim.api.nvim_buf_line_count(builder_buf)
+
+        local not_in_win = builder_win ~= vim.api.nvim_get_current_win()
+        local cursor_near_bottom = line_count - cursor_row <= 5
+
+        if not_in_win or cursor_near_bottom then vim.api.nvim_feedkeys("G", "n", false) end
+      end
+    }
+  )
+
+  vim.api.nvim_create_autocmd(
     { "BufDelete", "QuitPre" },
     {
       group = bob_group,
