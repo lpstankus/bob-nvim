@@ -17,15 +17,19 @@ function M.create_command(cmd)
   if not cmd.stream then cmd.stream = "stdout" end
   assert(cmd.stream == "stdout" or cmd.stream == "stderr", "Bob: command `" .. "` has unknown stream: `" .. cmd.stream .. "`")
 
+  local parser = require("bob.parser").create_parser(cmd.parser)
+  assert(parser, "Bob: linter must provide field `parser`:\n" .. vim.inspect(cmd))
+
   ---@type bob.Linter
   local linter = {
     name = cmd.name,
     cmd = cmd.cmd,
-    parser = require("bob.parser").create_parser(cmd.parser),
+    parser = parser,
     cwd = cmd.cwd,
     stream = cmd.stream,
     namespace = vim.api.nvim_create_namespace("bob.linter." .. cmd.name),
   }
+
   setmetatable(linter, M)
 
   return linter

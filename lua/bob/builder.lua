@@ -20,7 +20,8 @@ function M.create_builder(opts)
   local builder = {
     name = opts.name,
     cmd = opts.cmd,
-    parser = nil, -- TODO: create parser to fetch diagnostics from terminal output
+    move_focus = opts.move_focus,
+    parser = require("bob.parser").create_parser(opts.parser),
     namespace = vim.api.nvim_create_namespace("bob.builder." .. opts.name),
   }
   setmetatable(builder, M)

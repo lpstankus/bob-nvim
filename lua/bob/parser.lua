@@ -1,13 +1,17 @@
 ---@class bob.Parser
+---@field parse    fun(input: string): vim.Diagnostic[]
 ---@field on_chunk fun(chunk: string)
----@field on_done fun(publish: fun(diagnostics: vim.Diagnostic[]), linter_cwd: string)
+---@field on_done  fun(publish: fun(diagnostics: vim.Diagnostic[]), linter_cwd: string)
 
 local M = {}
 
----@return bob.Parser
+---@return bob.Parser | nil
 function M.create_parser(opts)
+  if not opts then
+    return nil
+  end
+
   -- luacheck: ignore 631
-  assert(opts,           "Bob: parser must provide field `parser`:\n"           .. vim.inspect(opts))
   assert(opts.pattern,   "Bob: parser must provide field `parser.pattern`:\n"   .. vim.inspect(opts))
   assert(opts.error_map, "Bob: parser must provide field `parser.error_map`:\n" .. vim.inspect(opts))
   assert(opts.groups,    "Bob: parser must provide field `parser.groups`:\n"    .. vim.inspect(opts))
@@ -25,7 +29,11 @@ function M.create_parser(opts)
 
   local parser = {}
   parser.chunks = {}
-  parser.on_chunk = function(chunk) table.insert(parser.chunks, chunk) end
+
+  parser.on_chunk = function(chunk)
+    table.insert(parser.chunks, chunk)
+  end
+
   parser.on_done = function(publish_fn)
     vim.schedule(function()
       local output = table.concat(parser.chunks)
@@ -33,6 +41,10 @@ function M.create_parser(opts)
       publish_fn(diagnostics)
       parser.chunks = {}
     end)
+  end
+
+  parser.parse = function(str)
+    return parse_fn(str)
   end
 
   return parser --[[@as bob.Parser]]
