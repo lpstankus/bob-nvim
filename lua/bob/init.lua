@@ -10,6 +10,8 @@ local storage = require("bob.storage")
 local linters = {}  ---@type table<string, bob.Linter>
 local builders = {} ---@type table<string, bob.Builder>
 
+local temp_builder = nil ---@type string | nil
+
 function M.setup(commands)
   assert(vim.diagnostic, "Bob: neovim 0.6.0+ is required")
 
@@ -47,8 +49,20 @@ end
 
 ---@param cmd_name string
 function M.set_builder(cmd_name)
-  assert(initialized, "Bob: must initialize bob with `require('bob').setup()` before trying to lint")
+  assert(initialized, "Bob: must initialize bob with `require('bob').setup()` before trying to set the builder")
   storage:replace_builder(vim.fn.getcwd(), cmd_name)
+  storage:save()
+end
+
+---@param cmd_string string
+---@param temp boolean
+function M.set_builder_cmd(cmd_string, temp)
+  assert(initialized, "Bob: must initialize bob with `require('bob').setup()` before trying to override the builder command")
+  if temp then
+    temp_builder = cmd_string
+    return
+  end
+  storage:replace_builder_cmd(vim.fn.getcwd(), cmd_string)
   storage:save()
 end
 
@@ -67,10 +81,19 @@ end
 function M.build(opts)
   assert(initialized, "Bob: must initialize bob with `require('bob').setup()` before trying to build")
 
-  local name = storage:retrieve_builder(vim.fn.getcwd())
-  assert(name ~= "", "Bob: no builder set for workspace")
-  local builder = builders[name]
-  assert(builder, "Bob: builder with name `" .. name .. "` not available")
+  local stor = storage:retrieve_builder(vim.fn.getcwd())
+  assert(stor.name ~= "", "Bob: no builder set for workspace")
+
+  local builder = builders[stor.name]
+  assert(builder, "Bob: builder with name `" .. stor.name .. "` not available")
+
+  if stor.cmd then
+    builder.cmd = stor.cmd
+  end
+
+  if temp_builder ~= nil then
+    builder.cmd = temp_builder
+  end
 
   local launch_params = {
     open_win = opts.open_win or true,

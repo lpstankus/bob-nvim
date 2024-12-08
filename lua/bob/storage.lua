@@ -1,5 +1,7 @@
 ---@class bob.StorageBuilder
 ---@field name string
+---@field cmd  string | nil
+
 ---@class bob.StorageCmds
 ---@field linters string[]
 ---@field builder bob.StorageBuilder
@@ -101,6 +103,14 @@ function Storage:replace_builder(path, name)
   assert(self.ok, "Bob: cannot replace builder, storage failed to load correctly")
   self:touch_path(path)
   self.workspaces[path].builder.name = name
+end
+
+---@param path string
+---@param cmd  string
+function Storage:replace_builder_cmd(path, cmd)
+  assert(self.ok, "Bob: cannot replace builder, storage failed to load correctly")
+  self:touch_path(path)
+  self.workspaces[path].builder.cmd = cmd
 end
 
 ---@param path string
