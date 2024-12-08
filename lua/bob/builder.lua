@@ -1,8 +1,9 @@
 ---@class bob.Builder
----@field name string        # defaults to command key in the commands table
----@field cmd string         # required, no default
----@field parser bob.Parser? # defaults to nil
----@field namespace integer  # private...
+---@field name       string      # defaults to command key in the commands table
+---@field cmd        string      # required, no default
+---@field move_focus boolean     # defaults to false
+---@field parser     bob.Parser? # defaults to nil
+---@field namespace  integer     # private...
 local Builder = {}
 local M = { __index = Builder }
 
@@ -84,16 +85,43 @@ function Builder:build(opts)
   )
 
   vim.api.nvim_create_autocmd(
+    { "TermClose" },
+    {
+      group = bob_group,
+      buffer = builder_buf,
+      callback = function()
+        local lines = vim.api.nvim_buf_get_lines(0, 0, vim.api.nvim_buf_line_count(0), false)
+        local output = table.concat(lines, '\n')
+        local diagnostics = self.parser.parse(output)
+        if #diagnostics == 0 then return end
+
+        -- TODO: implement diagnostic publishing with builders
+
+        if self.move_focus then
+          local d = diagnostics[1]
+          self:toggle_window()
+          local bufnr = vim.fn.bufnr(d["file"])
+          if bufnr <= 0 then
+            vim.cmd("bad " .. d["file"])
+            bufnr = vim.fn.bufnr(d["file"])
+          end
+          if bufnr <= 0 then return end
+
+          vim.api.nvim_set_current_buf(bufnr)
+          vim.api.nvim_win_set_cursor(0, { d.lnum + 1, d.col })
+        end
+      end
+    }
+  )
+
+  vim.api.nvim_create_autocmd(
     { "BufDelete", "QuitPre" },
     {
       group = bob_group,
       buffer = builder_buf,
       callback = function(_)
-        -- TODO: read output of terminal, publish diagnostics if there are any...
-
         self:kill()
         vim.notify("Bob: finished execution of `" .. self.name .. "`")
-
         builder_buf = nil
         builder_win = nil
       end
