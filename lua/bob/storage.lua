@@ -114,6 +114,13 @@ function Storage:replace_builder_cmd(path, cmd)
 end
 
 ---@param path string
+function Storage:reset_builder_cmd(path)
+  assert(self.ok, "Bob: cannot replace builder, storage failed to load correctly")
+  self:touch_path(path)
+  self.workspaces[path].builder.cmd = nil
+end
+
+---@param path string
 ---@param cmd  string[]
 function Storage:replace_linters(path, cmd)
   assert(self.ok, "Bob: cannot replace linters, storage failed to load correctly")

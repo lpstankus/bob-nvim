@@ -66,6 +66,16 @@ function M.set_builder_cmd(cmd_string, temp)
   storage:save()
 end
 
+function M.reset_builder_cmd()
+  assert(initialized, "Bob: must initialize bob with `require('bob').setup()` before trying to override the builder command")
+  if temp_builder then
+    temp_builder = nil
+    return
+  end
+  storage:reset_builder_cmd(vim.fn.getcwd())
+  storage:save()
+end
+
 function M.lint()
   assert(initialized, "Bob: must initialize bob with `require('bob').setup()` before trying to lint")
 
@@ -84,7 +94,7 @@ function M.build(opts)
   local stor = storage:retrieve_builder(vim.fn.getcwd())
   assert(stor.name ~= "", "Bob: no builder set for workspace")
 
-  local builder = builders[stor.name]
+  local builder = require("bob.utils").deepCopy(builders[stor.name])
   assert(builder, "Bob: builder with name `" .. stor.name .. "` not available")
 
   if stor.cmd then
