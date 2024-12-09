@@ -90,6 +90,8 @@ function Builder:build(opts)
       group = bob_group,
       buffer = builder_buf,
       callback = function()
+        if not self.parser then return end
+
         local lines = vim.api.nvim_buf_get_lines(0, 0, vim.api.nvim_buf_line_count(0), false)
         local output = table.concat(lines, '\n')
         local diagnostics = self.parser.parse(output)
