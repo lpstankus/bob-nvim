@@ -29,7 +29,7 @@ end
 
 function LintProc:read_output()
   local publish_fn = function(diagnostics)
-    vim.diagnostic.reset(self.linter.namespace)
+    vim.diagnostic.reset(self.linter._namespace)
 
     if not self.cancelled then
       local to_publish = {}
@@ -48,7 +48,7 @@ function LintProc:read_output()
       end
 
       for bufnr, buf_diagnostics in pairs(to_publish) do
-        vim.diagnostic.set(self.linter.namespace, bufnr, buf_diagnostics)
+        vim.diagnostic.set(self.linter._namespace, bufnr, buf_diagnostics)
       end
     end
 

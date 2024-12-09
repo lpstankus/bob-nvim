@@ -5,8 +5,8 @@
 ---@field cwd string               # defaults to `vim.fn.getcwd()`
 ---@field stream "stdout"|"stderr" # defaults to `stdout`
 --- private:
----@field proc bob.LintProc?
----@field namespace integer
+---@field _proc bob.LintProc?
+---@field _namespace integer
 local Linter = {}
 local M = { __index = Linter }
 
@@ -27,7 +27,7 @@ function M.create_command(cmd)
     parser = parser,
     cwd = cmd.cwd,
     stream = cmd.stream,
-    namespace = vim.api.nvim_create_namespace("bob.linter." .. cmd.name),
+    _namespace = vim.api.nvim_create_namespace("bob.linter." .. cmd.name),
   }
 
   setmetatable(linter, M)
@@ -60,8 +60,8 @@ function Linter:spawn_detached()
     lintproc_opts,
     function()
       if handle and not handle:is_closing() then
-        local lintproc = self.proc or {}
-        if handle == lintproc.handle then self.proc = nil end
+        local lintproc = self._proc or {}
+        if handle == lintproc.handle then self._proc = nil end
         handle:close()
       end
     end
@@ -89,8 +89,8 @@ function Linter:spawn_detached()
 end
 
 function Linter:lint()
-  if self.proc then self.proc:cancel() end
-  self.proc = nil
+  if self._proc then self._proc:cancel() end
+  self._proc = nil
 
   local ok, maybe_lintproc = pcall(self.spawn_detached, self)
   if not ok then
@@ -98,7 +98,7 @@ function Linter:lint()
     return
   end
 
-  self.proc = maybe_lintproc
+  self._proc = maybe_lintproc
 end
 
 return M
