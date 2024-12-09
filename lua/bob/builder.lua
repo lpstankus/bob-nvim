@@ -1,9 +1,11 @@
 ---@class bob.Builder
----@field name       string      # defaults to command key in the commands table
----@field cmd        string      # required, no default
----@field move_focus boolean     # defaults to false
----@field parser     bob.Parser? # defaults to nil
----@field namespace  integer     # private...
+---@field name                string      # defaults to command key in the commands table
+---@field cmd                 string      # required, no default
+---@field move_focus          boolean?    # defaults to false
+---@field publish_diagnostics boolean?    # defaults to false
+---@field parser              bob.Parser? # defaults to nil
+-- private:
+---@field _namespace  integer
 local Builder = {}
 local M = { __index = Builder }
 
@@ -22,8 +24,9 @@ function M.create_builder(opts)
     name = opts.name,
     cmd = opts.cmd,
     move_focus = opts.move_focus,
+    publish_diagnostics = opts.publish_diagnostics,
     parser = require("bob.parser").create_parser(opts.parser),
-    namespace = vim.api.nvim_create_namespace("bob.builder." .. opts.name),
+    _namespace = vim.api.nvim_create_namespace("bob.builder." .. opts.name),
   }
   setmetatable(builder, M)
 
@@ -37,6 +40,8 @@ function Builder:build(opts)
     self:toggle_window()
     return
   end
+
+  vim.diagnostic.reset(self._namespace)
 
   builder_buf = vim.api.nvim_create_buf(true, true)
   if builder_buf == 0 then
@@ -97,20 +102,38 @@ function Builder:build(opts)
         local diagnostics = self.parser.parse(output)
         if #diagnostics == 0 then return end
 
-        -- TODO: implement diagnostic publishing with builders
+        local prep_buf = function(file)
+          local bufnr = vim.fn.bufnr(file)
+          if bufnr <= 0 then
+            vim.cmd("bad " .. file)
+            bufnr = vim.fn.bufnr(file)
+          end
+          return bufnr
+        end
+
+        if self.publish_diagnostics then
+          local to_publish = {}
+          for _, d in ipairs(diagnostics) do
+            local bufnr = prep_buf(d["file"])
+            if bufnr > 0 then
+              if not to_publish[bufnr] then to_publish[bufnr] = {} end
+              table.insert(to_publish[bufnr], d)
+            end
+          end
+
+          for bufnr, buf_diagnostics in pairs(to_publish) do
+            vim.diagnostic.set(self._namespace, bufnr, buf_diagnostics)
+          end
+        end
 
         if self.move_focus then
           local d = diagnostics[1]
           self:toggle_window()
-          local bufnr = vim.fn.bufnr(d["file"])
-          if bufnr <= 0 then
-            vim.cmd("bad " .. d["file"])
-            bufnr = vim.fn.bufnr(d["file"])
+          local bufnr = prep_buf(d["file"])
+          if bufnr > 0 then
+            vim.api.nvim_set_current_buf(bufnr)
+            vim.api.nvim_win_set_cursor(0, { d.lnum + 1, d.col })
           end
-          if bufnr <= 0 then return end
-
-          vim.api.nvim_set_current_buf(bufnr)
-          vim.api.nvim_win_set_cursor(0, { d.lnum + 1, d.col })
         end
       end
     }
