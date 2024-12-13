@@ -146,6 +146,7 @@ function Builder:build(opts)
       buffer = builder_buf,
       callback = function(_)
         self:kill()
+        vim.diagnostic.reset(self._namespace)
         vim.notify("Bob: finished execution of `" .. self.name .. "`")
         builder_buf = nil
         builder_win = nil
