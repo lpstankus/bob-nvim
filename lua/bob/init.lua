@@ -12,20 +12,22 @@ local builders = {} ---@type table<string, bob.Builder>
 
 local temp_builder = nil ---@type string | nil
 
-function M.setup(commands)
+function M.setup(config)
   assert(vim.diagnostic, "Bob: neovim 0.6.0+ is required")
 
   linters = {}
-  for name, linter in pairs(commands.linters) do
+  for name, linter in pairs(config.linters) do
     if not linter.name then linter.name = name end
     linters[name] = require("bob.linter").create_command(linter)
   end
 
   builders = {}
-  for name, builder in pairs(commands.builders) do
+  for name, builder in pairs(config.builders) do
     if not builder.name then builder.name = name end
     builders[name] = require("bob.builder").create_builder(builder)
   end
+
+  M.mappings = config.mappings
 
   storage:load()
 

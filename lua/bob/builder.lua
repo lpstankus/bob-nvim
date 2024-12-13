@@ -58,6 +58,11 @@ function Builder:build(opts)
   if not opts.open_win then self:toggle_window() end
   vim.notify("Bob: spawned builder `" .. self.name .. "`")
 
+  local mappings = require("bob").mappings
+  for key, map in pairs(mappings) do
+    vim.keymap.set("n", key, map, { buffer = builder_buf, silent = true })
+  end
+
   -- create/clear augroup
   bob_group = vim.api.nvim_create_augroup("__InternalBobGroup", { clear = true })
 
